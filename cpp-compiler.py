@@ -47,6 +47,7 @@ if __name__ == "__main__":
 
     tokens = lexical_analyzer(input_code)
 
-    print("Tokens:")
+    print("Tokens :")
     for token in tokens:
         print(token)
+
