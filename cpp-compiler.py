@@ -186,9 +186,37 @@ def create_parse_table(grammar, first_sets, follow_sets):
                     
     return parse_table
 
+def save_parse_table(parse_table,filename="parse_table.txt"):
+    terminals = set()
+    for non_terminal in parse_table:
+        terminals.update(parse_table[non_terminal].keys())
+    terminals = sorted(terminals)
+
+    col_width = 30 
+    non_term_width = 15 
+
+    with open(filename, "w", encoding="utf-8") as file:
+        file.write("+" + "-" * (non_term_width + 2) + "+" + ("-" * (col_width + 2) + "+") * len(terminals) + "\n")
+        file.write("| {:<{}} |".format("Non-Term", non_term_width))
+        for terminal in terminals:
+            file.write(" {:<{}} |".format(terminal, col_width))
+        file.write("\n")
+        file.write("+" + "-" * (non_term_width + 2) + "+" + ("-" * (col_width + 2) + "+") * len(terminals) + "\n")
+
+        for non_terminal in parse_table:
+            file.write("| {:<{}} |".format(non_terminal, non_term_width))
+            for terminal in terminals:
+                if terminal in parse_table[non_terminal]:
+                    production = " ".join(parse_table[non_terminal][terminal].split())
+                    file.write(" {:<{}} |".format(production, col_width))
+                else:
+                    file.write(" {:<{}} |".format("[]", col_width))
+            file.write("\n")
+        file.write("+" + "-" * (non_term_width + 2) + "+" + ("-" * (col_width + 2) + "+") * len(terminals) + "\n")
+
 def display_token_table(tokens):
     headers = ['Token Name', 'Token Value', 'Hash']
-    col_width = 20
+    col_width = 20  # عرض ستون‌ها
 
     # Header
     print("+" + "+".join(["-" * (col_width + 2) for _ in headers]) + "+")
@@ -196,15 +224,22 @@ def display_token_table(tokens):
     print("+" + "+".join(["-" * (col_width + 2) for _ in headers]) + "+")
 
     # Rows
-    ordered_tokens = ['reservedword', 'iⅾentifier', 'symbol', 'nuⅿber', 'string']
+    ordered_tokens = ['reservedword', 'identifier', 'symbol', 'number', 'string']
+    displayed = set()
     for token_name in ordered_tokens:
-        token = next((t for t in tokens if t[0] == token_name), (token_name, ''))  # پیدا کردن مقدار توکن
-        token_value = token[1]
-        hash_value = hash(token_name + token_value)  # محاسبه هش
-        print("| " + " | ".join(f"{str(value):<{col_width}}" for value in [token_name, token_value, hash_value]) + " |")
+        token_values = [t[1] for t in tokens if t[0] == token_name]
+        for token_value in token_values:
+            if (token_name, token_value) not in displayed:
+                hash_value = hash(token_name + token_value) 
+                print("| " + " | ".join(f"{str(value):<{col_width}}" for value in [token_name, token_value, hash_value]) + " |")
+                displayed.add((token_name, token_value))
+    # Footer
+    print("+" + "+".join(["-" * (col_width + 2) for _ in headers]) + "+")
 
     # Footer
     print("+" + "+".join(["-" * (col_width + 2) for _ in headers]) + "+")
+
+
 
 def predictive_parser_with_tree(parse_table, tokens):
     stack = ["$", "Start"]
@@ -293,6 +328,8 @@ if __name__ == "__main__":
     print(follow_sets)
     # ایجاد جدول پارس
     parse_table = create_parse_table(grammar, first_sets, follow_sets)
+    saved_parse_table = save_parse_table(parse_table , filename="parse_table.txt")
+ 
     try:
         parse_tree_root = predictive_parser_with_tree(parse_table, mapped_tokens)
         print("\nParse Tree:")
