@@ -183,24 +183,28 @@ def create_parse_table(grammar, first_sets, follow_sets):
                 follow_sets[non_terminal]
                 for terminal in follow_sets[non_terminal]:
                     parse_table[non_terminal][terminal] = production
-
-    
+                    
     return parse_table
 
-
 def display_token_table(tokens):
-    headers = ['Token Name', 'Token Value']
-    col_width = max(len(str(token)) for token in tokens) + 2
+    headers = ['Token Name', 'Token Value', 'Hash']
+    col_width = 20
 
     # Header
-    print("+" + "-" * (col_width + 2) + "+" + ("-" * (col_width + 2) + "+"))
-    print("| {:<{}} | {:<{}} |".format(headers[0], col_width, headers[1], col_width))
-    print("+" + "-" * (col_width + 2) + "+" + ("-" * (col_width + 2) + "+"))
+    print("+" + "+".join(["-" * (col_width + 2) for _ in headers]) + "+")
+    print("| " + " | ".join(f"{header:<{col_width}}" for header in headers) + " |")
+    print("+" + "+".join(["-" * (col_width + 2) for _ in headers]) + "+")
 
-    for token in tokens:
-        print("| {:<{}} | {:<{}} |".format(token[0], col_width, token[1], col_width))
-    print("+" + "-" * (col_width + 2) + "+" + ("-" * (col_width + 2) + "+"))
+    # Rows
+    ordered_tokens = ['reservedword', 'iⅾentifier', 'symbol', 'nuⅿber', 'string']
+    for token_name in ordered_tokens:
+        token = next((t for t in tokens if t[0] == token_name), (token_name, ''))  # پیدا کردن مقدار توکن
+        token_value = token[1]
+        hash_value = hash(token_name + token_value)  # محاسبه هش
+        print("| " + " | ".join(f"{str(value):<{col_width}}" for value in [token_name, token_value, hash_value]) + " |")
 
+    # Footer
+    print("+" + "+".join(["-" * (col_width + 2) for _ in headers]) + "+")
 
 def predictive_parser_with_tree(parse_table, tokens):
     stack = ["$", "Start"]
