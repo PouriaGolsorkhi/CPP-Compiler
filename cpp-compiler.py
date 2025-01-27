@@ -1,21 +1,26 @@
 import re
 from collections import defaultdict
+from collections import deque
 
 # کلاس گره‌های درخت پارس
 class ParseTreeNode:
     def __init__(self, symbol):
-        self.symbol = symbol  
-        self.children = []    
+        self.symbol = symbol
+        self.children = []
 
     def add_child(self, child):
         self.children.append(child)
 
     def __repr__(self, level=0, prefix=""):
-        if self.symbol in grammar:  
-            ret = f"{prefix}├── [Non-Terminal] {repr(self.symbol)}\n"
-        else:  # Terminal
-            ret = f"{prefix}├── [Terminal] {repr(self.symbol)}\n"
-        
+        # Ignore ε (epsilon) nodes
+        if self.symbol == "ε":
+            return ""
+
+        # Determine node type
+        # node_type = "[Non-Terminal]" if self.symbol in grammar else "[Terminal]"
+        ret = f"{prefix}├──  {repr(self.symbol)}\n"
+
+        # Recursively display children
         for i, child in enumerate(self.children):
             if i == len(self.children) - 1:
                 ret += child.__repr__(level + 1, prefix + "    ")
@@ -23,6 +28,7 @@ class ParseTreeNode:
                 ret += child.__repr__(level + 1, prefix + "│   ")
 
         return ret
+
 
 
 
@@ -83,7 +89,7 @@ grammar = {
     "W": ["number","integer", "identifier"],
     "Assign": ["= Operation", "ε"],
     "Expression": ["Operation K Operation"],
-    "K": ["==", ">=", "<=", "!="],
+    "K": ["==", ">=", "<=", "!=", ">", "<"],
     "Loop": ["while ( Expression ) { T }"],
     "Input": ["cin >> identifier F ;"],
     "F": [">> identifier F", "ε"],
@@ -106,7 +112,7 @@ first_sets = {
     "P": {"ε", "+", "*", "-"},
     "O": {"+", "*", "-"},
     "Z": {",", ";"},
-    "K": {"!=", "<=", ">=", "=="},
+    "K": {"!=", "<=", ">=", "==", "<", ">"},
     "F": {"ε", ">>"},
     "H": {"ε", "<<"},
     "C": {"number", "string", "identifier"},
@@ -246,58 +252,80 @@ def predictive_parser_with_tree(parse_table, tokens):
     root = ParseTreeNode("Start")
     node_stack = [root]
     i = 0
-    a = tokens[i]
+    a = tokens[i][0]
 
     while stack[-1] != "$":
         X = stack[-1]
         current_node = node_stack[-1]
 
-        if X == a:
+        if X == a:  # Match terminal
             stack.pop()
+            current_node.add_child(ParseTreeNode(tokens[i][1]))  # Add terminal value
             node_stack.pop()
             i += 1
             if i < len(tokens):
-                a = tokens[i]
+                a = tokens[i][0]
         elif X not in parse_table:
             raise SyntaxError(f"Unexpected symbol '{a}', expected '{X}'")
         elif a not in parse_table[X]:
             raise KeyError(f"No production rule found for '{X}' with lookahead symbol '{a}'")
-        else:
+        else:  # Expand non-terminal
             production = parse_table[X][a]
             stack.pop()
             node_stack.pop()
+
+            if production == "ε":  # Skip epsilon productions
+                continue
+
             for symbol in reversed(production.split()):
-                if symbol != "ε":
-                    stack.append(symbol)
+                stack.append(symbol)
                 child_node = ParseTreeNode(symbol)
                 current_node.add_child(child_node)
                 node_stack.append(child_node)
 
     return root
 
-
 # نگاشت توکن‌ها به نمادهای گرامر
 def map_tokens_to_grammar(tokens):
     mapped_tokens = []
     for token_type, token_value in tokens:
         if token_type == "Id":
-            mapped_tokens.append("Id")  
+            mapped_tokens.append(("Id", token_value))  
         elif token_type == "identifier":
-            mapped_tokens.append("identifier")      
+            mapped_tokens.append(("identifier", token_value))      
         elif token_type == "number":
             if '.' in token_value: 
-                mapped_tokens.append("number")  
+                mapped_tokens.append(("number", token_value))  
             else:
-                mapped_tokens.append("integer")  
+                mapped_tokens.append(("integer",token_value))  
         elif token_type == "string":
-            mapped_tokens.append("string")
+            mapped_tokens.append(("string",token_value))
         elif token_type == "symbol":
-            mapped_tokens.append(token_value)  
+            mapped_tokens.append((token_value,token_value))  
         else:
-            mapped_tokens.append(token_value)
+            mapped_tokens.append((token_value,token_value))
     return mapped_tokens
 
 
+#جستجو در درخت مربوط به بخش اول امتیازی
+def bfs(root, search_id):
+    queue = deque([root])  # Start with the root node
+
+    while queue:
+        current_node = queue.popleft()
+
+        # Check if the current node corresponds to a variable declaration (L rule)
+        if current_node.symbol == "L":
+            for child in current_node.children:
+                if child.symbol == "identifier":
+                    # Match the identifier symbol with the search_id
+                    if child.children and child.children[0].symbol == search_id:
+                        return current_node  # Return the node where the variable is first defined
+
+        # Continue traversing the rest of the tree
+        queue.extend(current_node.children)
+
+    return None  # If no matching identifier is found
 
 
 # ایجاد Lexer و تجزیه‌گر
@@ -322,6 +350,8 @@ if __name__ == "__main__":
 
     # نگاشت توکن‌ها به نمادهای گرامر
     mapped_tokens = map_tokens_to_grammar(tokens)
+    
+    
 
     # محاسبه مجموعه‌های Follow
     follow_sets = compute_follow()
@@ -336,3 +366,29 @@ if __name__ == "__main__":
         print(parse_tree_root)
     except Exception as e:
         print(f"Error during parsing: {e}")
+
+
+    #بخش اول امتیازی
+    users_identifier = "$"
+    while(users_identifier!= ""):
+        print("would you like to search for a specific identifier within the input code you provided?")
+        print("(type in the name of the variable or press enter to cancel the search)")
+        users_identifier = input()
+        if users_identifier!="":
+            subtree_containing_users_identifier = bfs(parse_tree_root,users_identifier)
+            if subtree_containing_users_identifier == None:
+                print("the identifier hasn't been defined through the input code!")
+            else:
+                print(subtree_containing_users_identifier)
+                output = []
+                search_stack = [subtree_containing_users_identifier]
+                while search_stack:
+                    curr = search_stack.pop()
+                    if not curr.children and curr.symbol not in grammar.keys():
+                        output.append(curr.symbol)
+                    search_stack.extend(reversed(curr.children))
+                for i in range(len(mapped_tokens)-1):
+                    if mapped_tokens[i][1] in {"float","int"} and mapped_tokens[i+1][1] == users_identifier:
+                        output.append(mapped_tokens[i][1]) 
+                        break  
+                print(" ".join(reversed(output)))
