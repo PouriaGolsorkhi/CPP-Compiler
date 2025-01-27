@@ -12,15 +12,11 @@ class ParseTreeNode:
         self.children.append(child)
 
     def __repr__(self, level=0, prefix=""):
-        # Ignore ε (epsilon) nodes
         if self.symbol == "ε":
             return ""
 
-        # Determine node type
-        # node_type = "[Non-Terminal]" if self.symbol in grammar else "[Terminal]"
         ret = f"{prefix}├──  {repr(self.symbol)}\n"
 
-        # Recursively display children
         for i, child in enumerate(self.children):
             if i == len(self.children) - 1:
                 ret += child.__repr__(level + 1, prefix + "    ")
@@ -266,16 +262,15 @@ def predictive_parser_with_tree(parse_table, tokens):
         X = stack[-1]
         current_node = node_stack[-1]
 
-        if X == a:  # Match terminal
+        if X == a: 
             if X in ["int", "float"]:
                 if tokens[i][0] == "string":
                     raise TypeError(f"Type Error: Cannot assign a string to a variable of type '{X}'")
                 if X == "float" and tokens[i][0] == "int":
-                    # Optionally allow implicit casting or log a warning
                     pass
 
             stack.pop()
-            current_node.add_child(ParseTreeNode(tokens[i][1]))  # Add terminal value
+            current_node.add_child(ParseTreeNode(tokens[i][1]))  
             node_stack.pop()
             i += 1
             if i < len(tokens):
@@ -283,17 +278,16 @@ def predictive_parser_with_tree(parse_table, tokens):
         elif X not in parse_table:
             raise SyntaxError(f"Unexpected symbol '{a}', expected '{X}'")
         elif a not in parse_table[X]:
-            # Simple syntax error message
             if a == "identifier" or a == "number" or a == "string" or a in grammar.keys():
                 raise SyntaxError(f"Syntax Error: wrong type for'{tokens[i-2][1]}'")
             else:
                 raise SyntaxError(f"Syntax Error: Missing semicolon near '{tokens[i-1][1]}'")
-        else:  # Expand non-terminal
+        else:  
             production = parse_table[X][a]
             stack.pop()
             node_stack.pop()
 
-            if production == "ε":  # Skip epsilon productions
+            if production == "ε": 
                 continue
 
             for symbol in reversed(production.split()):
@@ -329,23 +323,20 @@ def map_tokens_to_grammar(tokens):
 
 #جستجو در درخت مربوط به بخش اول امتیازی
 def bfs(root, search_id):
-    queue = deque([root])  # Start with the root node
+    queue = deque([root])  
 
     while queue:
         current_node = queue.popleft()
 
-        # Check if the current node corresponds to a variable declaration (L rule)
         if current_node.symbol == "L":
             for child in current_node.children:
                 if child.symbol == "identifier":
-                    # Match the identifier symbol with the search_id
                     if child.children and child.children[0].symbol == search_id:
-                        return current_node  # Return the node where the variable is first defined
+                        return current_node  
 
-        # Continue traversing the rest of the tree
         queue.extend(current_node.children)
 
-    return None  # If no matching identifier is found
+    return None  
 
 
 # ایجاد Lexer و تجزیه‌گر
