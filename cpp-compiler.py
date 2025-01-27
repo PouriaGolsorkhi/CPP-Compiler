@@ -56,20 +56,28 @@ class Lexer:
     def tokenize(self, code):
         tokens = []
         pos = 0
+        line_number = 1  # شروع شماره خط
+
         while pos < len(code):
             match = None
             for token_name, regex in self.regex_patterns:
                 regex_match = regex.match(code, pos)
                 if regex_match:
-                    match = (token_name, regex_match.group(0))
+                    match = (token_name, regex_match.group(0), line_number)
                     break
             if not match:
-                raise Exception(f"Invalid token at position {pos}: {code[pos]}")
-            token_name, token_value = match
+                raise Exception(f"Invalid token at position {pos}: {code[pos]} on line {line_number}")
+            token_name, token_value, line_number = match
             if token_name != "WHITESPACE":  # نادیده گرفتن فاصله‌ها
-                tokens.append((token_name, token_value))
+                tokens.append((token_name, token_value, line_number))
             pos = regex_match.end()
+
+            # بررسی تغییر خط
+            if "\n" in regex_match.group(0):
+                line_number += regex_match.group(0).count("\n")
+
         return tokens
+
 
 
 # گرامر
@@ -259,6 +267,13 @@ def predictive_parser_with_tree(parse_table, tokens):
         current_node = node_stack[-1]
 
         if X == a:  # Match terminal
+            if X in ["int", "float"]:
+                if tokens[i][0] == "string":
+                    raise TypeError(f"Type Error: Cannot assign a string to a variable of type '{X}'")
+                if X == "float" and tokens[i][0] == "int":
+                    # Optionally allow implicit casting or log a warning
+                    pass
+
             stack.pop()
             current_node.add_child(ParseTreeNode(tokens[i][1]))  # Add terminal value
             node_stack.pop()
@@ -268,7 +283,11 @@ def predictive_parser_with_tree(parse_table, tokens):
         elif X not in parse_table:
             raise SyntaxError(f"Unexpected symbol '{a}', expected '{X}'")
         elif a not in parse_table[X]:
-            raise KeyError(f"No production rule found for '{X}' with lookahead symbol '{a}'")
+            # Simple syntax error message
+            if a == "identifier" or a == "number" or a == "string" or a in grammar.keys():
+                raise SyntaxError(f"Syntax Error: wrong type for'{tokens[i-2][1]}'")
+            else:
+                raise SyntaxError(f"Syntax Error: Missing semicolon near '{tokens[i-1][1]}'")
         else:  # Expand non-terminal
             production = parse_table[X][a]
             stack.pop()
@@ -288,23 +307,24 @@ def predictive_parser_with_tree(parse_table, tokens):
 # نگاشت توکن‌ها به نمادهای گرامر
 def map_tokens_to_grammar(tokens):
     mapped_tokens = []
-    for token_type, token_value in tokens:
+    for token_type, token_value, line_number in tokens:
         if token_type == "Id":
-            mapped_tokens.append(("Id", token_value))  
+            mapped_tokens.append(("Id", token_value, line_number))  
         elif token_type == "identifier":
-            mapped_tokens.append(("identifier", token_value))      
+            mapped_tokens.append(("identifier", token_value, line_number))      
         elif token_type == "number":
             if '.' in token_value: 
-                mapped_tokens.append(("number", token_value))  
+                mapped_tokens.append(("number", token_value, line_number))  
             else:
-                mapped_tokens.append(("integer",token_value))  
+                mapped_tokens.append(("integer", token_value, line_number))  
         elif token_type == "string":
-            mapped_tokens.append(("string",token_value))
+            mapped_tokens.append(("string", token_value, line_number))
         elif token_type == "symbol":
-            mapped_tokens.append((token_value,token_value))  
+            mapped_tokens.append((token_value, token_value, line_number))  
         else:
-            mapped_tokens.append((token_value,token_value))
+            mapped_tokens.append((token_value, token_value, line_number))
     return mapped_tokens
+
 
 
 #جستجو در درخت مربوط به بخش اول امتیازی
@@ -336,12 +356,10 @@ if __name__ == "__main__":
     print("Enter your code (end input with a blank line):")
     
     input_code = ""
-    while True:
-        line = input()
-        if line == "":
-            break
-        input_code += line + "\n"
-        
+    with open("input_code.cpp", "r") as file:
+        input_code = file.read()
+
+            
         
     # تحلیل لغوی
     tokens = lexer.tokenize(input_code)
